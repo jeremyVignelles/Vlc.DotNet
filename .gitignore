@@ -160,3 +160,4 @@ $RECYCLE.BIN/
 build/
 !lib/**/*.dll
 lib/*/plugins/plugins.dat
+.idea/

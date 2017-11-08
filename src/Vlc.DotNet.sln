@@ -46,6 +46,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Vlc.DotNet.props = Vlc.DotNet.props
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vlc.DotNet.Core.Samples", "Vlc.DotNet.Core.Samples\Vlc.DotNet.Core.Samples.csproj", "{5EC2C701-CFAE-4551-9CAF-F1A4C42734B0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|AnyCPU = Debug|AnyCPU
@@ -96,6 +98,10 @@ Global
 		{9A066A54-318B-45C8-B3A3-2292D9DF4A33}.Debug|AnyCPU.Build.0 = Debug|Any CPU
 		{9A066A54-318B-45C8-B3A3-2292D9DF4A33}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{9A066A54-318B-45C8-B3A3-2292D9DF4A33}.Release|AnyCPU.Build.0 = Release|Any CPU
+		{5EC2C701-CFAE-4551-9CAF-F1A4C42734B0}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{5EC2C701-CFAE-4551-9CAF-F1A4C42734B0}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{5EC2C701-CFAE-4551-9CAF-F1A4C42734B0}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{5EC2C701-CFAE-4551-9CAF-F1A4C42734B0}.Release|AnyCPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

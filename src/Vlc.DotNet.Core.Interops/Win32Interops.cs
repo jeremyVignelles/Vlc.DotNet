@@ -5,7 +5,7 @@ namespace Vlc.DotNet.Core.Interops
 {
     using System.Text;
 
-    internal static class Win32Interops
+    public static class Win32Interops
     {
         /// <summary>
         /// Retrieves the address of an exported function or variable from the specified dynamic-link library (DLL).

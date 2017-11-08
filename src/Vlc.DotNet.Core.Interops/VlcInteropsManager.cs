@@ -26,27 +26,52 @@ namespace Vlc.DotNet.Core.Interops
             if (!dynamicLinkLibrariesPath.Exists)
                 throw new DirectoryNotFoundException();
 
-            var libGccDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libgcc_s_seh-1.dll");
-            if (File.Exists(libGccDllPath))
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                myLibGccDllHandle = Win32Interops.LoadLibrary(libGccDllPath);
-                if (myLibGccDllHandle == IntPtr.Zero)
+                var libGccDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libgcc_s_seh-1.dll");
+                if (File.Exists(libGccDllPath))
+                {
+                    myLibGccDllHandle = Win32Interops.LoadLibrary(libGccDllPath);
+                    if (myLibGccDllHandle == IntPtr.Zero)
+                        throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
+
+                var libVlcCoreDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libvlccore.dll");
+                if (!File.Exists(libVlcCoreDllPath))
+                    throw new FileNotFoundException();
+                myLibVlcCoreDllHandle = Win32Interops.LoadLibrary(libVlcCoreDllPath);
+                if (myLibVlcCoreDllHandle == IntPtr.Zero)
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+
+                var libVlcDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libvlc.dll");
+                if (!File.Exists(libVlcDllPath))
+                    throw new FileNotFoundException();
+                myLibVlcDllHandle = Win32Interops.LoadLibrary(libVlcDllPath);
+                if (myLibVlcDllHandle == IntPtr.Zero)
                     throw new Win32Exception(Marshal.GetLastWin32Error());
             }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                var libVlcCoreDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libvlccore.so");
+                if (!File.Exists(libVlcCoreDllPath))
+                    throw new FileNotFoundException();
+                myLibVlcCoreDllHandle = LinuxInterop.dlopen(libVlcCoreDllPath, 1);
+                if (myLibVlcCoreDllHandle == IntPtr.Zero)
+                {
+                    throw new Exception(LinuxInterop.dlerror());
+                }
 
-            var libVlcCoreDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libvlccore.dll");
-            if (!File.Exists(libVlcCoreDllPath))
-                throw new FileNotFoundException();
-            myLibVlcCoreDllHandle = Win32Interops.LoadLibrary(libVlcCoreDllPath);
-            if (myLibVlcCoreDllHandle == IntPtr.Zero)
-                throw new Win32Exception(Marshal.GetLastWin32Error());
-
-            var libVlcDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libvlc.dll");
-            if (!File.Exists(libVlcDllPath))
-                throw new FileNotFoundException();
-            myLibVlcDllHandle = Win32Interops.LoadLibrary(libVlcDllPath);
-            if (myLibVlcDllHandle == IntPtr.Zero)
-                throw new Win32Exception(Marshal.GetLastWin32Error());
+                var libVlcDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libvlc.so");
+                if (!File.Exists(libVlcDllPath))
+                    throw new FileNotFoundException();
+                myLibVlcDllHandle = LinuxInterop.dlopen(libVlcDllPath, 1);
+                if (myLibVlcDllHandle == IntPtr.Zero)
+                    throw new Exception(LinuxInterop.dlerror());
+            }
+            else
+            {
+                throw new PlatformNotSupportedException();
+            }
         }
 
         internal T GetInteropDelegate<T>()
@@ -68,9 +93,23 @@ namespace Vlc.DotNet.Core.Interops
                     return (T) myInteropDelegates[attr.FunctionName];
                 }
 
-                var procAddress = Win32Interops.GetProcAddress(myLibVlcDllHandle, attr.FunctionName);
-                if (procAddress == IntPtr.Zero)
-                    throw new Win32Exception();
+                IntPtr procAddress;
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    procAddress = Win32Interops.GetProcAddress(myLibVlcDllHandle, attr.FunctionName);
+                    if (procAddress == IntPtr.Zero)
+                        throw new Win32Exception();
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    procAddress = LinuxInterop.dlsym(myLibVlcDllHandle, attr.FunctionName);
+                    if (procAddress == IntPtr.Zero)
+                        throw new Exception(LinuxInterop.dlerror());
+                }
+                else
+                {
+                    throw new PlatformNotSupportedException();
+                }
 
                 object delegateForFunctionPointer;
 #if NET20||NET35||NET40||NET45
@@ -98,17 +137,34 @@ namespace Vlc.DotNet.Core.Interops
         {
             if (myLibVlcDllHandle != IntPtr.Zero)
             {
-                Win32Interops.FreeLibrary(myLibVlcDllHandle);
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    Win32Interops.FreeLibrary(myLibVlcDllHandle);
+                }
+                else if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    LinuxInterop.dlclose(myLibGccDllHandle);
+                }
                 myLibVlcDllHandle = IntPtr.Zero;
             }
             if (myLibVlcCoreDllHandle != IntPtr.Zero)
             {
-                Win32Interops.FreeLibrary(myLibVlcCoreDllHandle);
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    Win32Interops.FreeLibrary(myLibVlcCoreDllHandle);
+                }
+                else if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    LinuxInterop.dlclose(myLibVlcCoreDllHandle);
+                }
                 myLibVlcCoreDllHandle = IntPtr.Zero;
             }
             if (myLibGccDllHandle != IntPtr.Zero)
             {
-                Win32Interops.FreeLibrary(myLibGccDllHandle);
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    Win32Interops.FreeLibrary(myLibGccDllHandle);
+                }
                 myLibGccDllHandle = IntPtr.Zero;
             }
         }

@@ -57,12 +57,32 @@ namespace Vlc.DotNet.Core
             if (this.log != null)
             {
                 // Original source for va_list handling: https://stackoverflow.com/a/37629480/2663813
-                var byteLength = Win32Interops._vscprintf(format, args) + 1;
+                int byteLength;
+                if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    byteLength = Win32Interops._vscprintf(format, args) + 1;
+                }
+                else if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    byteLength = LinuxInterop.vsnprintf(IntPtr.Zero, UIntPtr.Zero, format, args) + 1;
+                }
+                else
+                {
+                    throw new PlatformNotSupportedException();
+                }
+                
                 var utf8Buffer = Marshal.AllocHGlobal(byteLength);
 
                 string formattedDecodedMessage;
                 try {
-                    Win32Interops.vsprintf(utf8Buffer, format, args);
+                    if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    {
+                        Win32Interops.vsprintf(utf8Buffer, format, args);
+                    }
+                    else if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                    {
+                        LinuxInterop.vsprintf(utf8Buffer, format, args);
+                    }
 
                     formattedDecodedMessage = Utf8InteropStringConverter.Utf8InteropToString(utf8Buffer);
                 }
