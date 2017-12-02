@@ -34,7 +34,7 @@ namespace Vlc.DotNet.Core.Interops
         [DllImport("libc", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         public static extern int vsprintf(
             IntPtr buffer,
-            string format,
+            [In][MarshalAs(UnmanagedType.LPStr)] string format,
             IntPtr args);
 
         /// <summary>
@@ -47,7 +47,21 @@ namespace Vlc.DotNet.Core.Interops
         public static extern int vsnprintf(
             IntPtr buffer,
             UIntPtr size,
-            string format,
-            IntPtr ptr);
+            [In][MarshalAs(UnmanagedType.LPStr)] string format,
+            IntPtr args);
+    }
+
+    /// <summary>
+    /// The va_list structure of linux x64
+    /// https://www.uclibc.org/docs/psABI-x86_64.pdf page 52
+    /// https://github.com/jeremyVignelles/va-list-interop-demo
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct VaListLinuxX64
+    {
+        private UInt32 gp_offset;
+        private UInt32 fp_offset;
+        private IntPtr overflow_arg_area;
+        private IntPtr reg_save_area;
     }
 }

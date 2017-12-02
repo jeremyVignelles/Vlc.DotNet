@@ -9,4 +9,8 @@ namespace Vlc.DotNet.Core.Interops.Signatures
     [LibVlcFunction("libvlc_media_player_set_hwnd")]
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void SetMediaPlayerVideoHostHandle(IntPtr mediaPlayerInstance, IntPtr videoHostHandle);
+    
+    [LibVlcFunction("libvlc_media_player_set_xwindow")]
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void SetMediaPlayerVideoHostHandleX11(IntPtr mediaPlayerInstance, UInt32 videoHostHandle);
 }

@@ -37,7 +37,25 @@ namespace Vlc.DotNet.Core
                     this.log += value;
                     if (!this.logAttached)
                     {
-                        this.Manager.SetLog(this.OnLogInternal);
+                        // This code is based on the research work that was made here : https://github.com/jeremyVignelles/va-list-interop-demo
+                        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && 
+                            (RuntimeInformation.ProcessArchitecture == Architecture.X64 || RuntimeInformation.ProcessArchitecture == Architecture.X86))
+                        {
+                            this.Manager.SetLog(this.OnLogInternal);
+                        }
+                        else if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && RuntimeInformation.ProcessArchitecture == Architecture.X64)
+                        {
+                            this.Manager.SetLog(this.OnLogInternalLinuxX64);
+                        }
+                        else if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && RuntimeInformation.ProcessArchitecture == Architecture.X64)
+                        {
+                            this.Manager.SetLog(this.OnLogInternalLinuxX86);
+                        }
+                        else
+                        {
+                            throw new PlatformNotSupportedException();
+                        }
+                        
                         this.logAttached = true;
                     }
                 }
@@ -52,37 +70,18 @@ namespace Vlc.DotNet.Core
             }
         }
 
-        private void OnLogInternal(IntPtr data, VlcLogLevel level, IntPtr ctx, string format, IntPtr args)
+        private void OnLogInternal(IntPtr data, VlcLogLevel level, IntPtr logContext, string format, IntPtr args)
         {
             if (this.log != null)
             {
                 // Original source for va_list handling: https://stackoverflow.com/a/37629480/2663813
-                int byteLength;
-                if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    byteLength = Win32Interops._vscprintf(format, args) + 1;
-                }
-                else if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    byteLength = LinuxInterop.vsnprintf(IntPtr.Zero, UIntPtr.Zero, format, args) + 1;
-                }
-                else
-                {
-                    throw new PlatformNotSupportedException();
-                }
+                int byteLength = Win32Interops._vscprintf(format, args) + 1;
                 
                 var utf8Buffer = Marshal.AllocHGlobal(byteLength);
 
                 string formattedDecodedMessage;
                 try {
-                    if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                    {
-                        Win32Interops.vsprintf(utf8Buffer, format, args);
-                    }
-                    else if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                    {
-                        LinuxInterop.vsprintf(utf8Buffer, format, args);
-                    }
+                    Win32Interops.vsprintf(utf8Buffer, format, args);
 
                     formattedDecodedMessage = Utf8InteropStringConverter.Utf8InteropToString(utf8Buffer);
                 }
@@ -91,21 +90,104 @@ namespace Vlc.DotNet.Core
                     Marshal.FreeHGlobal(utf8Buffer);
                 }
 
-                string module;
-                string file;
-                uint? line;
-                this.Manager.GetLogContext(ctx, out module, out file, out line);
-
-                // Do the notification on another thread, so that VLC is not interrupted by the logging
-#if NETSTANDARD1_3
-                Task.Run(() => this.log(this.myMediaPlayerInstance, new VlcMediaPlayerLogEventArgs(level, formattedDecodedMessage, module, file, line)));
-#else
-                ThreadPool.QueueUserWorkItem(eventArgs =>
-                {
-                    this.log(this.myMediaPlayerInstance, (VlcMediaPlayerLogEventArgs)eventArgs);
-                }, new VlcMediaPlayerLogEventArgs(level, formattedDecodedMessage, module, file, line));
-#endif
+                this.CallLogCallback(level, logContext, formattedDecodedMessage);
             }
+        }
+
+        private void OnLogInternalLinuxX86(IntPtr data, VlcLogLevel level, IntPtr logContext, string format, IntPtr args)
+        {
+            if (this.log != null)
+            {
+                int byteLength = LinuxInterop.vsnprintf(IntPtr.Zero, UIntPtr.Zero, format, args) + 1;
+                
+                var utf8Buffer = Marshal.AllocHGlobal(byteLength);
+
+                string formattedDecodedMessage;
+                try {
+                    LinuxInterop.vsprintf(utf8Buffer, format, args);
+
+                    formattedDecodedMessage = Utf8InteropStringConverter.Utf8InteropToString(utf8Buffer);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(utf8Buffer);
+                }
+                
+                this.CallLogCallback(level, logContext, formattedDecodedMessage);
+            }
+        }
+
+        private void OnLogInternalLinuxX64(IntPtr data, VlcLogLevel level, IntPtr logContext, string format, IntPtr args)
+        {
+            if (this.log != null)
+            {
+                // The args pointer cannot be reused between two calls. We need to make a copy of the underlying structure.
+#if NET20 || NET35 || NET40 || NET45
+            var listStructure = (VaListLinuxX64)Marshal.PtrToStructure(args, typeof(VaListLinuxX64));
+#else
+                var listStructure = Marshal.PtrToStructure<VaListLinuxX64>(args);
+#endif
+                IntPtr listPointer = Marshal.AllocHGlobal(Marshal.SizeOf(listStructure));
+                int byteLength;
+                try
+                {
+                    Marshal.StructureToPtr(listStructure, listPointer, false);
+                    byteLength = LinuxInterop.vsnprintf(IntPtr.Zero, UIntPtr.Zero, format, listPointer) + 1;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(listPointer);
+                }
+                
+                var utf8Buffer = Marshal.AllocHGlobal(byteLength);
+                string formattedDecodedMessage;
+                try
+                {
+                    listPointer = Marshal.AllocHGlobal(Marshal.SizeOf(listStructure));
+                    try
+                    {
+                        Marshal.StructureToPtr(listStructure, listPointer, false);
+                        LinuxInterop.vsprintf(utf8Buffer, format, listPointer);
+                        formattedDecodedMessage = Utf8InteropStringConverter.Utf8InteropToString(utf8Buffer);
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(listPointer);
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(utf8Buffer);
+                }
+                
+                this.CallLogCallback(level, logContext, formattedDecodedMessage);
+            }
+        }
+        
+        /// <summary>
+        /// The function that resolves the log context and calls the callback
+        /// with the message that was decoded previously in a platform-specific way
+        /// </summary>
+        /// <param name="level">The log level</param>
+        /// <param name="logContext">The log context that is used to fetch the message location</param>
+        /// <param name="message">The message</param>
+        private void CallLogCallback(VlcLogLevel level, IntPtr logContext, string message)
+        {
+            string module;
+            string file;
+            uint? line;
+            this.Manager.GetLogContext(logContext, out module, out file, out line);
+
+            var logEventArgs = new VlcMediaPlayerLogEventArgs(level, message, module, file, line);
+            // Do the notification on another thread, so that VLC is not interrupted by the logging
+#if NETSTANDARD1_3
+            Task.Run(() => this.log(this.myMediaPlayerInstance, logEventArgs));
+#else
+            ThreadPool.QueueUserWorkItem(eventArgs =>
+            {
+                this.log(this.myMediaPlayerInstance, (VlcMediaPlayerLogEventArgs)eventArgs);
+            }, logEventArgs);
+#endif
         }
     }
 }

@@ -12,4 +12,8 @@ namespace Vlc.DotNet.Core.Interops.Signatures
     [LibVlcFunction("libvlc_log_set")]
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void SetLog(IntPtr libVlcInstance, LogCallback callback, IntPtr userData);
+    
+    [LibVlcFunction("libvlc_log_set")]
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void SetLogLinux(IntPtr libVlcInstance, LogCallback callback, IntPtr userData);
 }

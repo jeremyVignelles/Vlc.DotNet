@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Vlc.DotNet.Forms.Samples
@@ -16,11 +17,17 @@ namespace Vlc.DotNet.Forms.Samples
         {
             var currentAssembly = Assembly.GetEntryAssembly();
             var currentDirectory = new FileInfo(currentAssembly.Location).DirectoryName;
-            if (IntPtr.Size == 4)
-                e.VlcLibDirectory = new DirectoryInfo(Path.Combine(currentDirectory, @"..\..\..\lib\x86\"));
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                e.VlcLibDirectory = new DirectoryInfo("/usr/lib");
+            }
             else
-                e.VlcLibDirectory = new DirectoryInfo(Path.Combine(currentDirectory, @"..\..\..\lib\x64\"));
-
+            {
+                if (IntPtr.Size == 4)
+                    e.VlcLibDirectory = new DirectoryInfo(Path.Combine(currentDirectory, @"..\..\..\lib\x86\"));
+                else
+                    e.VlcLibDirectory = new DirectoryInfo(Path.Combine(currentDirectory, @"..\..\..\lib\x64\"));
+            }
             if (!e.VlcLibDirectory.Exists)
             {
                 var folderBrowserDialog = new FolderBrowserDialog();

@@ -55,7 +55,7 @@ namespace Vlc.DotNet.Core.Interops
                 var libVlcCoreDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libvlccore.so");
                 if (!File.Exists(libVlcCoreDllPath))
                     throw new FileNotFoundException();
-                myLibVlcCoreDllHandle = LinuxInterop.dlopen(libVlcCoreDllPath, 1);
+                myLibVlcCoreDllHandle = LinuxInterop.dlopen(libVlcCoreDllPath, LinuxInterop.RTLD_LAZY);
                 if (myLibVlcCoreDllHandle == IntPtr.Zero)
                 {
                     throw new Exception(LinuxInterop.dlerror());
@@ -64,7 +64,7 @@ namespace Vlc.DotNet.Core.Interops
                 var libVlcDllPath = Path.Combine(dynamicLinkLibrariesPath.FullName, "libvlc.so");
                 if (!File.Exists(libVlcDllPath))
                     throw new FileNotFoundException();
-                myLibVlcDllHandle = LinuxInterop.dlopen(libVlcDllPath, 1);
+                myLibVlcDllHandle = LinuxInterop.dlopen(libVlcDllPath, LinuxInterop.RTLD_LAZY);
                 if (myLibVlcDllHandle == IntPtr.Zero)
                     throw new Exception(LinuxInterop.dlerror());
             }
